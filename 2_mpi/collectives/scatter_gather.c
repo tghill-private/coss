@@ -1,11 +1,10 @@
-
 #include "mpi.h"
 #include <stdio.h>
 #define SIZE 4
 
 int main(int argc, char* argv[]) {
 
-	
+
   int numtasks, rank, sendcount, recvcount, source;
   float sendbuf[SIZE][SIZE] = {
     {1.0, 2.0, 3.0, 4.0},
@@ -18,7 +17,7 @@ int main(int argc, char* argv[]) {
   MPI_Init(&argc,&argv);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &numtasks);
-	
+
   if (numtasks == SIZE) {
       source = 1;
       sendcount = SIZE;
@@ -28,16 +27,19 @@ int main(int argc, char* argv[]) {
 
       printf("rank= %d  Results: %f %f %f %f\n",rank,recvbuf[0],
              recvbuf[1],recvbuf[2],recvbuf[3]);
-      }	
+
+      MPI_Gather(recvbuf, SIZE, MPI_FLOAT, newbuf, SIZE,
+                  MPI_FLOAT, source, MPI_COMM_WORLD);
+
+      if ( rank == source) {
+        for (int i = 0;i<SIZE; i++)
+          for (int j=0;j<SIZE; j++)
+            printf("%f ", newbuf[i][j]);
+          printf("\n");
+        }
+      }
   else
   printf("Must specify %d processors. Terminating.\n",SIZE);
-
-  if (numtasks == SIZE) {
-    source = 1;
-    sendcount = SIZE;
-    recvcount = SIZE;
-    MPI_Gather(recvbuf, sendcount, MPI_FLOAT, newbuf, recvcount,
-                MPI_FLOAT, source, MPI_COMM_WORLD);
-    printf("rank= %d  Results: %f %f 
   MPI_Finalize();
-  }	
+  }
+
