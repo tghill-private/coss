@@ -115,6 +115,7 @@ To start, break down the `firstmessage.c` program into blocks
        char sendmessage[]="Hello";       // text to send
        char getmessage[6];            // text to recieve
        MPI_Status rstatus;       // MPI_Recv status info
+       ...
      }
 ```
 
