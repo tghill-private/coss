@@ -101,13 +101,13 @@ Now that the basics are covered, we can write, compile, and run some code! The c
 To start, break down the `firstmessage.c` program into blocks
 
  * Header, including the `mpi` library
-  ```C++
+```C++
    #include <stdio.h>
    #include <mpi.h>
-  ```
+```
 
  * initialize variables, specify sendmessage and getmessage as char types.
-   ```C++
+```C
    int main(int argc, char **argv) {
        int rank, size, ierr;
        int sendto, recvfrom;  // task to send, recv from
@@ -115,18 +115,20 @@ To start, break down the `firstmessage.c` program into blocks
        char sendmessage[]="Hello";       // text to send
        char getmessage[6];            // text to recieve
        MPI_Status rstatus;       // MPI_Recv status info
-  ```
- * Initialize Communicator, and set rank and size
-  ```C++
+     }
+```
+
+  Initialize Communicator, and set rank and size.
+```C
        ierr = MPI_Init(&argc, &argv);
        ierr = MPI_Comm_size(MPI_COMM_WORLD, &size);
        ierr = MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-   ```
+```
  * Check the rank, and send message if the rank is 0; receive the message if the rank is 1.
     * MPI_Ssend: Secure send; specify length of message, `MPI_CHAR` is the datatype, `ourtag` is the tag, and give communicator
     * MPI_Recf: Again specify length and type, tag, and communicator. rstatus is the receive status.
 
-   ```C++
+   ```C
      if (rank == 0) {
          sendto = 1;
          ierr = MPI_Ssend(sendmessage, 6, MPI_CHAR, sendto,
@@ -139,7 +141,6 @@ To start, break down the `firstmessage.c` program into blocks
                          ourtag, MPI_COMM_WORLD, &rstatus);
          printf("%d: Got message <%s>\n", rank, getmessage);
        }
- }
   ```
 
 
