@@ -5,7 +5,7 @@
 
 int main(int argc, char **argv) {
     /* simulation parameters */
-    const int totpoints=1000;
+    const int totpoints=10;
     const float xleft = -12., xright = +12.;
     const float kappa = 1.;
 
@@ -25,10 +25,28 @@ int main(int argc, char **argv) {
 
     int old, new;
     int step, i;
-    int red, grey,white;
+    int red, grey, white;
     float time;
     float dt, dx;
     float error;
+
+    // MPI definitions
+    float ierr;
+    int numtasks, rank;
+
+    int numpoints
+
+
+    // initialize MPI communicator
+
+    ierr = MPI_init(&argc, &argv);
+
+    ierr = MPI_COMM_rank(MPI_COMM_WORLD, &rank);
+
+    ierr = MPI_COMM_size(MPI_COMM_WORLD), &numtasks);
+
+    // The number of points for each subdomain, not incl guard cells
+    numpoints = totpoints/numtasks
 
     /* set parameters */
 
@@ -40,19 +58,19 @@ int main(int argc, char **argv) {
      * theory doesn't need ghost cells, but we include it for simplicity
      */
 
-    theory = (float *)malloc((totpoints+2)*sizeof(float));
-    x      = (float *)malloc((totpoints+2)*sizeof(float));
+    theory = (float *)malloc((numpoints+2)*sizeof(float));
+    x      = (float *)malloc((numpoints+2)*sizeof(float));
     temperature = (float **)malloc(2 * sizeof(float *));
-    temperature[0] = (float *)malloc((totpoints+2)*sizeof(float));
-    temperature[1] = (float *)malloc((totpoints+2)*sizeof(float));
+    temperature[0] = (float *)malloc((numpoints+2)*sizeof(float));
+    temperature[1] = (float *)malloc((numpoints+2)*sizeof(float));
     old = 0;
     new = 1;
 
     /* setup initial conditions */
 
     time = 0.;
-    for (i=0; i<totpoints+2; i++) {
-        x[i] = xleft + (i-1+0.5)*dx;
+    for (i=0; i<numpoints+2; i++) {
+        x[i] = xleft + (rank*numpoints + i - 1+0.5)*dx;
         temperature[old][i] = ao*exp(-(x[i]*x[i]) / (2.*sigmao*sigmao));
         theory[i]           = ao*exp(-(x[i]*x[i]) / (2.*sigmao*sigmao));
     }
@@ -84,7 +102,7 @@ int main(int argc, char **argv) {
 
         for (i=1; i<totpoints+1; i++) {
             temperature[new][i] = temperature[old][i] + dt*kappa/(dx*dx) *
-                (temperature[old][i+1] - 2.*temperature[old][i] + 
+                (temperature[old][i+1] - 2.*temperature[old][i] +
                  temperature[old][i-1]) ;
         }
 

@@ -1,7 +1,7 @@
 all: diffusionc diffusionf diffusionc-mpi
 
 include ../Makefile.inc
-USEPGPLOT=-DPGPLOT
+USEPGPLOT=
 
 MPICC=mpicc
 MPIF77=mpif90
