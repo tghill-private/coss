@@ -167,52 +167,137 @@ Take a look at the serial code here:
       return 0;
   }
 ```
-### Guard cell exchange
+### Modify the code to work with MPI
 In the domain decomposition, the stencils will jut out into a neighbouring subdomain. If we fill the guard cells with values from the neighbouring stencils, then we treat each coupled subdomain as independent with boundary conditions. Therefore, we need a communicator.
 
-### Hands-on: Modify the code to work with MPI
-The hard part of making this code work is setting the boundary conditions. (TODO)
+For now, we modify the above program in a few ways:
+ * Decompose the global domain into a smaller piece for each process. Each process needs to know where it is in the domain to aply initial conditions.
+ * Pass the guard cell values to appropriate neighbours using `MPI_Sendrecv`.
+
+We add these into the code with the following snippets (of course also including declarations of all variables)
+
+Include the usual first MPI calls
+
+```C
+ierr = MPI_Init(&argc, &argv);
+ierr = MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+ierr = MPI_Comm_size(MPI_COMM_WORLD, &numtasks);
+```
+
+Compute the number of points in each subdomain, and use `locpoints` to allocate memory.
+```C
+locpoints = totpoints/size;
+```
+
+Find the neighbours, and set to `MPI_PROC_NULL` if it is an edge
+```C
+left = rank-1;
+if (left < 0) left = MPI_PROC_NULL;
+right= rank+1;
+if (right >= size) right = MPI_PROC_NULL;
+```
+
+The boundary conditions are the tricky part. We use send and receive the guard cell values before computing all the new values.
+
+```C
+for (step=0; step < nsteps; step++) {
+    // boundary conditions: keep endpoint temperatures fixed.
+
+    temperature[old][0] = fixedlefttemp;
+    temperature[old][locpoints+1] = fixedrighttemp;
+
+    // send data rightwards
+    ierr = MPI_Sendrecv(&(temperature[old][locpoints]), 1, MPI_FLOAT, right, righttag,
+                 &(temperature[old][0]), 1, MPI_FLOAT, left,  righttag, MPI_COMM_WORLD, &status);
+
+    // send data leftwards
+    ierr = MPI_Sendrecv(&(temperature[old][1]), 1, MPI_FLOAT, left, lefttag,
+                 &(temperature[old][locpoints+1]), 1, MPI_FLOAT, right,  lefttag, MPI_COMM_WORLD, &status);
+
+
+    for (i=1; i<locpoints+1; i++) {
+        temperature[new][i] = temperature[old][i] + dt*kappa/(dx*dx) *
+            (temperature[old][i+1] - 2. * temperature[old][i] +
+             temperature[old][i-1]) ;
+    }
+
+
+    time += dt;
+  }
+```
 
 ## Non-blocking communication
-These are a mechanism for overlapping/interleaving communications and useful computations. For instance, in the diffusion example the processors had to wait for the send/receive before doing their useful computation. We want to be able to simultaneously carry our useful computation and be performing sends/receives.
-
-In particular, the sequence of communicaiton and computation was
+Consider the above example. The processors had to wait for the send/receive before doing their useful computation. The sequence of communication and computation was
 
  * Code exchanges guard cells using `Sendrecv`
  * The code **then** computes the next step
  * Then again exchanges guard cells
  * And repeat
 
-A non-blocking communication/computation pattern is
+This isn't the only computation/communication pattern we can use. Instead, we could use a pattern such as
 
- * Start a send of guard cells using `ISend`
+ * Start a send of guard cells
  * Without waiting for that send's completion, the code computes the next step for the inner cells, while the guard cell message is in transit
- * The code receives the guard cells using `IRecv`
+ * The code receives the guard cells
  * Afterwards, it computes the other cell's new values
  * Repeat
 
-The functions that implement this are
+This pattern is called **non-blocking communication**. The communication does not block the useful computations. As usual, MPI implements functions for this for us. These functions are `MPI_Isend` and `MPI_Irecv`. These functions initiate the communication, but do not block the computation from proceeding. Some details about the functions:
 
- * `MPI_Isend(sendptr, count, MPI_TYPE, destination, tag, Communicator, MPI_Request`
+ * `MPI_Isend(sendptr, count, MPI_TYPE, destination, tag, Communicator, MPI_Request)`
    * `sendptr`/`recvptr`: pointer to message
    * `count`: number of elements in the ptr
    * `MPI_TYPE`: MPI datatype
    * `destination`/`source`: rank of sender/receiver
    * `tag`: unique ID for message pair
    * `Communicator`: `MPI_COMM_WORLD` or user created
-   * `MPI_Request`: Identify comm operations
+   * `MPI_Request`: Identify comm operations (`MPI_Request` type)
  * `MPI_Irecv`
    * See above for definitions
 
-We can tell if the message is completed by the wait functions
+Of course if the program continues without knowing if the sends/receives are finished, at some point this can cause a problem. If we try to use the guard cell values before we have finished receiving them, the program will crash. MPI has various **wait** functions for this. These functions block the process from continuing until the request(s) they are watching are finished. Two of the wait functions are
  * `MPI_Wait(MPI_Request, MPI_Status)`
  * `MPI_Waitall(count, MPI_Request, MPI_Status)`
-Where
- * `MPI_Request` identifies the comm operation(s)
- * `MPI_Status` is the status of comm operation(s)
- * `flag`: `true` if the comm is complete, `false` if not sent/received yet
 
-**TODO: Put in example modifications**
+Where
+  * `MPI_Request` identifies the comm operation(s)
+  * `MPI_Status` is the status of comm operation(s)
+  * `flag`: `true` if the comm is complete, `false` if not sent/received yet
+
+We can further improve the above  example by using the `Isend`/`Irecv` and wait functions. We need to wait for the  sends/receives to finish before we can use the guard cells in computations, but we can compute the middle of the domains perfectly fine while the communication is in transit. The new part of the code is
+
+```C
+MPI_Request request[4];
+MPI_Status status[4];
+for (step=0; step < nsteps; step++) {
+    temperature[old][0] = fixedlefttemp;
+    temperature[old][locpoints+1] = fixedrighttemp;
+
+  ierr = MPI_Isend(&(temperature[old][locpoints]), 1, MPI_FLOAT, right, righttag, MPI_COMM_WORLD, &request[0]);
+  ierr = MPI_Isend(&(temperature[old][1]), 1, MPI_FLOAT, left, lefttag, MPI_COMM_WORLD, &request[1]);
+  ierr = MPI_Irecv(&(temperature[old][0]), 1, MPI_FLOAT, left, righttag, MPI_COMM_WORLD, &request[2]);
+  ierr = MPI_Irecv(&(temperature[old][locpoints+1]), 1, MPI_FLOAT, right, lefttag, MPI_COMM_WORLD, &request[3]);
+
+  for (i=2; i<locpoints; i++) {
+      temperature[new][i] = temperature[old][i] + dt*kappa/(dx*dx) *
+          (temperature[old][i+1] - 2. * temperature[old][i] +
+           temperature[old][i-1]) ;
+      }
+
+  ierr = MPI_Waitall(4, &request, &status); // important to wait here!
+
+  i = 1;
+      temperature[new][i] = temperature[old][i] + dt*kappa/(dx*dx) *
+      (temperature[old][i+1] - 2. * temperature[old][i] + temperature[old][i-1]) ;
+
+  i = locpoints+1;
+  temperature[new][i] = temperature[old][i] + dt*kappa/(dx*dx) *
+  (temperature[old][i+1] - 2. * temperature[old][i] + temperature[old][i-1]) ;
+
+  time += dt;
+}
+
+```
 
 ## MPI-IO
 File I/O is the most expensive part of our workflow. We would like I/O to be parallel not serial, but writing one file per process is inconvenient and inefficient. However, having multiple processes write to the same file is difficult and makes files corrupt.

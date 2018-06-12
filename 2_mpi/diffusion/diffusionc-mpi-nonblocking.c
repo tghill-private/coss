@@ -34,7 +34,7 @@ int main(int argc, char **argv) {
     float error;
     float globalerror=0.0;
 
-    /* MPI STUFF */ 
+    /* MPI STUFF */
     int ierr;
     int rank, size;
     int start,end;
@@ -57,7 +57,7 @@ int main(int argc, char **argv) {
     if (left < 0) left = MPI_PROC_NULL;
     right= rank+1;
     if (right >= size) right = MPI_PROC_NULL;
-   
+
 
     /* set parameters */
 
@@ -114,7 +114,7 @@ int main(int argc, char **argv) {
     for (step=0; step < nsteps; step++) {
         temperature[old][0] = fixedlefttemp;
         temperature[old][locpoints+1] = fixedrighttemp;
-        /* Previous solution for sending data 
+        /* Previous solution for sending data
  * 	send data rightwards
         ierr = MPI_Sendrecv(&(temperature[old][locpoints]), 1, MPI_FLOAT, right, righttag,
                      &(temperature[old][0]), 1, MPI_FLOAT, left,  righttag, MPI_COMM_WORLD, &status);
@@ -138,13 +138,13 @@ int main(int argc, char **argv) {
 
         for (i=2; i<locpoints; i++) {
             temperature[new][i] = temperature[old][i] + dt*kappa/(dx*dx) *
-                (temperature[old][i+1] - 2.*temperature[old][i] + 
+                (temperature[old][i+1] - 2.*temperature[old][i] +
                  temperature[old][i-1]) ;
         }
 	printf("Outside of loop, waiting for send/recv\n");
 
 	ierr = MPI_Waitall(4, &request, &status);
-	
+
 	i = 1;
         temperature[new][i] = temperature[old][i] + dt*kappa/(dx*dx) *
         (temperature[old][i+1] - 2.*temperature[old][i] + temperature[old][i-1]) ;
@@ -182,14 +182,14 @@ int main(int argc, char **argv) {
         for (i=1;i<locpoints+1;i++) {
             error += (theory[i] - temperature[new][i])*(theory[i] - temperature[new][i]);
         }
- 
+
  	//Reduction of norm
 	ierr = MPI_Allreduce(&error, &globalerror, 1, MPI_FLOAT,
                          MPI_SUM, MPI_COMM_WORLD);
 
         globalerror = sqrt(globalerror);
 
-       //Only Master Outputs to screen     
+       //Only Master Outputs to screen
        if (rank == 0) {
           printf("Step = %d, Time = %g, Error = %g\n", step, time, globalerror);
        }
@@ -202,16 +202,6 @@ int main(int argc, char **argv) {
     /*
      * free data
      */
-
-	
-    MPI_File file;
-    MPI_Status filestatus;
-    MPI_File_open(MPI_COMM_WORLD, "diffusion.dat", MPI_MODE_CREATE|MPI_MODE_WRONLY, MPI_INFO_NULL, &file);
-
-    MPI_File_write_all(file, temperature[new], locpoints, MPI_FLOAT, &status);
-
-    MPI_File_close(&file);
-
     free(temperature[1]);
     free(temperature[0]);
     free(temperature);
@@ -222,4 +212,3 @@ int main(int argc, char **argv) {
     MPI_Finalize();
     return 0;
 }
-
