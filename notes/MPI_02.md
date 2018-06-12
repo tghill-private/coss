@@ -211,3 +211,69 @@ Where
  * `MPI_Request` identifies the comm operation(s)
  * `MPI_Status` is the status of comm operation(s)
  * `flag`: `true` if the comm is complete, `false` if not sent/received yet
+
+**TODO: Put in example modifications**
+
+## MPI-IO
+File I/O is the most expensive part of our workflow. We would like I/O to be parallel not serial, but writing one file per process is inconvenient and inefficient. However, having multiple processes write to the same file is difficult and makes files corrupt.
+
+As usual, the MPI standard has a solution for this: MPI-IO. Packages like netCDF and HDF5 are built on top of this standard, and so they can write in parallel without having to deal with all the low-level details.
+
+MPI-IO exploits analogies with MPI:
+
+ * Writing ~ sending message
+ * Reading ~ receiving message
+ * File access grouped via communicator: collective operations
+ * User defined MPI datatypes
+ * IO latency hiding much like communicator latency hiding
+ * All functionality through function calls
+
+As in regular I/O, files are maintained through file handles. A file gets opened with `MPI_File_open`, eg.
+
+```C
+MPI_File fh;
+MPI_File_open(MPI_COMM_WORLD, "test.dat", MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
+MPI_File_close(&fh);
+```
+
+The main open modes are:
+
+ * `MPI_MODE_RDONLY`: read only
+ * `MPI_MODE_RDWR`: reading and writing
+ * `MPI_MODE_CREATE`: create the file if it does not exist
+
+More exist, but they are more specialized to certain use cases.
+
+To make binary access more natural, MPI-IO defines file access through the **file view**. The file view is specified by
+
+ * displacement: Where to start in the file
+ * etype: Allows to access the file in units other than bytes
+ * filetype: Each process defines what part of a shared file it uses.
+
+### Example of file IO
+
+```C
+#include <string.h>
+#include <mpi.h>
+
+int rank, size, msgsize;
+char message;
+
+MPI_File file;
+MPI_Status status;
+MPI_Offset offset;
+
+msgsize = 6;
+
+MPI_Init();
+MPI_Comm_size(MPI_COMM_WORLD, &size);
+MPI_Comm_world(MPI_COMM_WORLD, &rank);
+
+if (rank % 2) strcpy(message, "World!"); else strcpy(message, "Hello ");
+offset = msgsize * rank;
+MPI_File_open(MPI_COMM_WORLD, "helloworld.txt", MPI_MODE_CREATE|MPI_MODE_WRONLY, MPI_INFO_NULL, &file);
+MPI_File_seek(file, offset, MPI_SEEK_SET);
+MPI_File_write(file, message, msgsize, MPI_CHAR, &status);
+MPI_File_close(&file);
+MPI_Finalize();
+```
