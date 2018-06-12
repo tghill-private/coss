@@ -171,3 +171,22 @@ Take a look at the serial code here:
 In the domain decomposition, the stencils will jut out into a neighbouring subdomain. If we fill the guard cells with values from the neighbouring stencils, then we treat each coupled subdomain as independent with boundary conditions. Therefore, we need a communicator.
 
 ### Hands-on: Modify the code to work with MPI
+The hard part of making this code work is setting the boundary conditions. (TODO)
+
+## Non-blocking communication
+These are a mechanism for overlapping/interleaving communications and useful computations. For instance, in the diffusion example the processors had to wait for the send/receive before doing their useful computation. We want to be able to simultaneously carry our useful computation and be performing sends/receives.
+
+In particular, the sequence of communicaiton and computation was
+
+ * Code exchanges guard cells using `Sendrecv`
+ * The code **then** computes the next step
+ * Then again exchanges guard cells
+ * And repeat
+
+A non-blocking communication/computation pattern is
+
+ * Start a send of guard cells using `ISend`
+ * Without waiting for that send's completion, the code computes the next step for the inner cells, while the guard cell message is in transit
+ * The code receives the guard cells using `IRecv`
+ * Afterwards, it computes the other cell's new values
+ * Repeat
