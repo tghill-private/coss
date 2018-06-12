@@ -120,7 +120,6 @@ Take a look at the serial code here:
 
 
           time += dt;
-```
   #ifdef PGPLOT
           if (step % plotsteps == 0) {
               cpgbbuf();
@@ -157,7 +156,6 @@ Take a look at the serial code here:
           new = 1 - old;
       }
 
-
       // free data
 
       free(temperature[1]);
@@ -168,6 +166,8 @@ Take a look at the serial code here:
 
       return 0;
   }
-```C
+```
 ### Guard cell exchange
 In the domain decomposition, the stencils will jut out into a neighbouring subdomain. If we fill the guard cells with values from the neighbouring stencils, then we treat each coupled subdomain as independent with boundary conditions. Therefore, we need a communicator.
+
+### Hands-on: Modify the code to work with MPI
