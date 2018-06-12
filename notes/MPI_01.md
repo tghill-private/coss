@@ -1,5 +1,5 @@
 # Parallel Programming Clusters with MPI
-*June 11-12, 2018. University of Toronto, Wilson Hall. Ramses van Zon*.
+*June 11, 2018. University of Toronto, Wilson Hall. Ramses van Zon*.
 
 One paradigm for parallel computing is **distributed memory**. From a hardware perspective, simply connect multiple computers together with a network. We think of the communication between the CPUs as a **message passing interface** (MPI).
 
