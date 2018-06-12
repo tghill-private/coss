@@ -29,17 +29,16 @@ int main(int argc, char* argv[]) {
              recvbuf[1],recvbuf[2],recvbuf[3]);
 
       MPI_Gather(recvbuf, SIZE, MPI_FLOAT, newbuf, SIZE,
-                  MPI_FLOAT, source, MPI_COMM_WORLD);
+                  MPI_FLOAT, source, MPI_COMM_WORLD)
 
       if ( rank == source) {
         for (int i = 0;i<SIZE; i++)
           for (int j=0;j<SIZE; j++)
             printf("%f ", newbuf[i][j]);
-          printf("\n");
+          printf("\n")
         }
       }
   else
   printf("Must specify %d processors. Terminating.\n",SIZE);
   MPI_Finalize();
   }
-
