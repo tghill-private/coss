@@ -296,8 +296,9 @@ for (step=0; step < nsteps; step++) {
 
   time += dt;
 }
-
 ```
+
+The entire program is in the file `2_mpi/diffusion/diffusionc-mpi-nonblocking.c`.
 
 ## MPI-IO
 File I/O is the most expensive part of our workflow. We would like I/O to be parallel not serial, but writing one file per process is inconvenient and inefficient. However, having multiple processes write to the same file is difficult and makes files corrupt.
