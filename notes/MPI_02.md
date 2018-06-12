@@ -190,3 +190,24 @@ A non-blocking communication/computation pattern is
  * The code receives the guard cells using `IRecv`
  * Afterwards, it computes the other cell's new values
  * Repeat
+
+The functions that implement this are
+
+ * `MPI_Isend(sendptr, count, MPI_TYPE, destination, tag, Communicator, MPI_Request`
+   * `sendptr`/`recvptr`: pointer to message
+   * `count`: number of elements in the ptr
+   * `MPI_TYPE`: MPI datatype
+   * `destination`/`source`: rank of sender/receiver
+   * `tag`: unique ID for message pair
+   * `Communicator`: `MPI_COMM_WORLD` or user created
+   * `MPI_Request`: Identify comm operations
+ * `MPI_Irecv`
+   * See above for definitions
+
+We can tell if the message is completed by the wait functions
+ * `MPI_Wait(MPI_Request, MPI_Status)`
+ * `MPI_Waitall(count, MPI_Request, MPI_Status)`
+Where
+ * `MPI_Request` identifies the comm operation(s)
+ * `MPI_Status` is the status of comm operation(s)
+ * `flag`: `true` if the comm is complete, `false` if not sent/received yet
