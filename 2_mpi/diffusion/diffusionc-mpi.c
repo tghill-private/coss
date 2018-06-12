@@ -2,14 +2,15 @@
 #include <stdlib.h>
 #include <math.h>
 #include "cpgplot.h"
+#include <mpi.h>
 
 int main(int argc, char **argv) {
     /* simulation parameters */
-    const int totpoints=10;
+    const int totpoints=10000;
     const float xleft = -12., xright = +12.;
     const float kappa = 1.;
 
-    const int nsteps=100000;
+    const int nsteps=100;
     const int plotsteps=50;
 
     /* data structures */
@@ -34,19 +35,19 @@ int main(int argc, char **argv) {
     float ierr;
     int numtasks, rank;
 
-    int numpoints
+    int numpoints;
 
 
     // initialize MPI communicator
 
-    ierr = MPI_init(&argc, &argv);
+    ierr = MPI_Init(&argc, &argv);
 
-    ierr = MPI_COMM_rank(MPI_COMM_WORLD, &rank);
+    ierr = MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    ierr = MPI_COMM_size(MPI_COMM_WORLD), &numtasks);
+    ierr = MPI_Comm_size(MPI_COMM_WORLD, &numtasks);
 
     // The number of points for each subdomain, not incl guard cells
-    numpoints = totpoints/numtasks
+    numpoints = totpoints/numtasks;
 
     /* set parameters */
 
