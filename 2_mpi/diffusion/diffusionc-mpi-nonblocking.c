@@ -12,7 +12,7 @@ int main(int argc, char **argv) {
     float locxleft, locxright;
     const float kappa = 1.;
 
-    const int nsteps=100000;
+    const int nsteps=10;
     const int plotsteps=50;
 
     /* data structures */
@@ -40,7 +40,6 @@ int main(int argc, char **argv) {
     int start,end;
     int left, right;
     int lefttag=1, righttag=2;
-    MPI_Status status;
 
    /* MPI Initialization */
     ierr = MPI_Init(&argc, &argv);
@@ -110,29 +109,50 @@ int main(int argc, char **argv) {
 
     /* evolve */
 
+    MPI_Request request[4];
+    MPI_Status status[4];
     for (step=0; step < nsteps; step++) {
-        /* boundary conditions: keep endpoint temperatures fixed. */
-
         temperature[old][0] = fixedlefttemp;
         temperature[old][locpoints+1] = fixedrighttemp;
-	
-        /* send data rightwards */
+        /* Previous solution for sending data 
+ * 	send data rightwards
         ierr = MPI_Sendrecv(&(temperature[old][locpoints]), 1, MPI_FLOAT, right, righttag,
                      &(temperature[old][0]), 1, MPI_FLOAT, left,  righttag, MPI_COMM_WORLD, &status);
 
-        /* send data leftwards */
+        send data leftwards
         ierr = MPI_Sendrecv(&(temperature[old][1]), 1, MPI_FLOAT, left, lefttag,
                      &(temperature[old][locpoints+1]), 1, MPI_FLOAT, right,  lefttag, MPI_COMM_WORLD, &status);
+	*
+	*/
+
+	/*	Non-blocking: post send/recv	*/
+	printf("Posting send/recvs \n");
+	ierr = MPI_Isend(&(temperature[old][locpoints]), 1, MPI_FLOAT, right, righttag, MPI_COMM_WORLD, &request[0]);
+
+	ierr = MPI_Isend(&(temperature[old][1]), 1, MPI_FLOAT, left, lefttag, MPI_COMM_WORLD, &request[1]);
+
+	ierr = MPI_Irecv(&(temperature[old][0]), 1, MPI_FLOAT, left, righttag, MPI_COMM_WORLD, &request[2]);
+
+	ierr = MPI_Irecv(&(temperature[old][locpoints+1]), 1, MPI_FLOAT, right, lefttag, MPI_COMM_WORLD, &request[3]);
 
 
-        for (i=1; i<locpoints+1; i++) {
+        for (i=2; i<locpoints; i++) {
             temperature[new][i] = temperature[old][i] + dt*kappa/(dx*dx) *
                 (temperature[old][i+1] - 2.*temperature[old][i] + 
                  temperature[old][i-1]) ;
         }
+	printf("Outside of loop, waiting for send/recv\n");
 
+	ierr = MPI_Waitall(4, &request, &status);
+	
+	i = 1;
+        temperature[new][i] = temperature[old][i] + dt*kappa/(dx*dx) *
+        (temperature[old][i+1] - 2.*temperature[old][i] + temperature[old][i-1]) ;
 
-        time += dt;
+        i = locpoints+1;
+        temperature[new][i] = temperature[old][i] + dt*kappa/(dx*dx) *
+        (temperature[old][i+1] - 2.*temperature[old][i] + temperature[old][i-1]) ;
+	time += dt;
 
 #ifdef PGPLOT
         if (step % plotsteps == 0) {
@@ -190,6 +210,7 @@ int main(int argc, char **argv) {
     free(theory);
 
 
-	MPI_Finalize();
+    MPI_Finalize();
     return 0;
 }
+
