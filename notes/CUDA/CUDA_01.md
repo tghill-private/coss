@@ -345,4 +345,74 @@ int main( void ) {
 ```
 ** We can not do much to parallelize the `int julia` function. However, we can parallelize the `kernel` function.
 
-Based on the GPU architecture, we have a maximum block size `blocksize = 32`.
+Based on the GPU architecture, we have a maximum block size `blocksize = 32`. We will add this as a constant into the `main` function.
+
+We CUDA-ize the code by:
+
+* define `julia` function as a `__device__` function
+   ```C
+   __device__ int julia( int x, int y )
+   ...
+  ```
+
+* Turn `kernel` function into a true Kernel
+```C
+__global__ void kernel(int *arr){
+
+    int x, y, i;
+
+    x = blockIdx.x * blockDim.x + threadIdx.x;
+    y = blockIdx.y * blockDim.y + threadIdx.y;
+    if (x < DIM && y < DIM) {
+      i = x + y * DIM;
+      int juliaValue = julia( x, y );
+      arr[i] = juliaValue;
+    }
+}
+```
+* Add memory allocations and kernel call to `main` function.
+
+```C
+int main( void ) {
+    int arr_host[DIM*DIM];
+    int * arr_dev;
+    int blocksize = 32;
+    FILE * out;
+
+
+    dim3 gridDef(DIM/blocksize + 1, DIM/blocksize + 1, 1);
+    dim3 blockDef(blocksize, blocksize, 1);
+
+    size_t memsize;
+
+    memsize = DIM*DIM*sizeof(int);
+
+    cudaMallocHost((void ** ) &arr_host, memsize);
+    cudaMalloc((void ** ) &arr_dev, memsize);
+
+    cudaMemcpy(arr_dev, arr_host, memsize, cudaMemcpyHostToDevice);
+
+    kernel<<<gridDef, blockDef>>>(arr_dev);
+
+    cudaMemcpy(arr_host, arr_dev, memsize, cudaMemcpyDeviceToHost);
+
+    cudaDeviceSynchronize();
+
+    out = fopen( "julia.dat", "w" );
+    for (int y=0; y<DIM; y++) {
+        for (int x=0; x<DIM; x++) {
+            int offset = x + y * DIM;
+            if(arr_host[offset]==1)
+                fprintf(out,"%d %d \n",x,y);
+        }
+    }
+    fclose(out);
+
+    cudaFree(arr_host);
+    cudaFree(arr_dev);
+}
+```
+
+We should really include error checking in this program as well; see above code snippets for how to include that.
+
+This program is not fully optimized for GPU computing. When we invoke the kernel, some of the threads will execute the maximum number of iterations, while some will execute less. In other words, the threads are not load balanced. Moreover, this program is fairly light. Most of the time is spent uploading and downloading data, not in the actual computing.

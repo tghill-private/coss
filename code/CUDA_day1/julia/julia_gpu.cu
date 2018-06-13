@@ -1,5 +1,5 @@
 /*
-Code adapted from book "CUDA by Example: An Introduction to General-Purpose GPU Programming" 
+Code adapted from book "CUDA by Example: An Introduction to General-Purpose GPU Programming"
 
 This code computes a visualization of the Julia set.  Two-dimensional "bitmap" data which can be plotted is computed by the function kernel.
 
@@ -11,20 +11,20 @@ z= z**2 + C
 
 If it converges, then the initial point z is in the Julia set.
 
-This code is CPU only but will compile with:
+This code has been modified for GPU computing and will compile with:
 
 nvcc julia_cpu.cu
 
- 
+
 */
 
 
 #include <stdio.h>
 #include <cuda.h>
 
-#define DIM 2000
+#define DIM 1000
 
-__device__ int julia( int x, int y ) { 
+__device__ int julia( int x, int y ) {
     const float scale = 1.5;
     float jx = scale * (float)(DIM/2 - x)/(DIM/2);
     float jy = scale * (float)(DIM/2 - y)/(DIM/2);
@@ -51,7 +51,7 @@ __device__ int julia( int x, int y ) {
 }
 
 __global__ void kernel(int *arr){
-    
+
     int x, y, i;
 
     x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -93,13 +93,12 @@ int main( void ) {
         for (int x=0; x<DIM; x++) {
             int offset = x + y * DIM;
             if(arr_host[offset]==1)
-                fprintf(out,"%d %d \n",x,y);  
-        } 
-    } 
+                fprintf(out,"%d %d \n",x,y);
+        }
+    }
     fclose(out);
 
     cudaFree(arr_host);
     cudaFree(arr_dev);
 
 }
-

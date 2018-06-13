@@ -1,4 +1,0 @@
-Test Kernel took 1.053536 ms ,  measured with cudaEvent timer
-gpu kernel and memcopy 4.796000 ms
-cpu kernel 3.345000 ms
-test comparison shows 0 errors
