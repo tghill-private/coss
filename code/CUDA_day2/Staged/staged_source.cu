@@ -98,8 +98,6 @@ nvcc -arch=sm_60 -O2 staged.cu -o staged
 #define BLOCK_SIZE 128
 // Total number of threads (total number of elements to process in the kernel):
 #define NMAX 1000000
-// Number of chunks
-#define NCHUNKS 10
 
 int timeval_subtract (double *result, struct timeval *x, struct timeval *y);
 
@@ -107,16 +105,14 @@ int timeval_subtract (double *result, struct timeval *x, struct timeval *y);
 
 
 // The kernel:
-__global__ void MyKernel (double *d_A, double *d_B, int ind, int nthreads)
+__global__ void MyKernel (double *d_A, double *d_B)
 {
   double x, y, z;
 
-  int i0 = threadIdx.x + blockDim.x * blockIdx.x;
+  int i = threadIdx.x + blockDim.x * blockIdx.x;
 
-  if (i0 >= nthreads)
+  if (i >= NMAX)
     return;
-
-  int i = i0 + ind;
 
   // Some meaningless cpu-intensive computation:
 
@@ -145,12 +141,6 @@ int main (int argc,char **argv)
   double restime, restime0, restime1;
   int devid, devcount, error, Max_gridsize;
   double *h_A, *h_B, *d_A, *d_B;
-
-  cudaStream_t ID[2];
-
-  // create streams
-  for (int j = 0; j<2*NCHUNKS; j++)
-	  cudaStreamCreate(&ID[j]);
 
   /* find number of device in current "context" */
   cudaGetDevice(&devid);
@@ -205,12 +195,12 @@ for (kk=0; kk<NTESTS; kk++)
  
 
   // Number of blocks of threads:
-  //  int Nblocks = (NMAX+BLOCK_SIZE-1) / BLOCK_SIZE;
-  //  if (Nblocks > Max_gridsize)
-  //  {
-  //    printf ("Nblocks > Max_gridsize!  %d  %d\n", Nblocks, Max_gridsize);
-  //    exit (1);
-  //  }
+  int Nblocks = (NMAX+BLOCK_SIZE-1) / BLOCK_SIZE;
+  if (Nblocks > Max_gridsize)
+    {
+      printf ("Nblocks > Max_gridsize!  %d  %d\n", Nblocks, Max_gridsize);
+      exit (1);
+    }
 
   if (error = cudaDeviceSynchronize())
     {
@@ -220,12 +210,9 @@ for (kk=0; kk<NTESTS; kk++)
   gettimeofday (&tdr0, NULL);
   //--------------------------------------------------------------------------------
 
-  for (int chnk = 0; chnk < NCHUNKS; chnk++){
-  int nthreads = NMAX/NCHUNKS;
-  int nblocks = nthreads / BLOCK_SIZE;
-  int ind = chnk*nthreads;
+
   // Copying the data to device (we time it):
-  if (error = cudaMemcpyAsync (&d_A[ind], &h_A[ind], nthreads*sizeof(double), cudaMemcpyHostToDevice, ID[0]))
+  if (error = cudaMemcpy (d_A, h_A, NMAX*sizeof(double), cudaMemcpyHostToDevice))
     {
       printf ("Error %d\n", error);
       exit (error);
@@ -240,10 +227,12 @@ for (kk=0; kk<NTESTS; kk++)
       exit (error);
     }
   gettimeofday (&tdr01, NULL);
-  // The kernel call:
-  MyKernel <<<nblocks, BLOCK_SIZE, 0, ID[1]>>> (d_A, d_B, ind, nthreads);
 
-  }
+
+  // The kernel call:
+  MyKernel <<<Nblocks, BLOCK_SIZE>>> (d_A, d_B);
+
+
   //--------------------------------------------------------------------------------
   if (error = cudaDeviceSynchronize())
     {
@@ -287,10 +276,6 @@ for (kk=0; kk<NTESTS; kk++)
   cudaFreeHost (h_B);
   cudaFree (d_A);
   cudaFree (d_B);
-
-  // Destroy streams
-  for (int n = 0; n<2; n++)
-	  cudaStreamDestroy(ID[n]);
 
 } // kk loop
 
