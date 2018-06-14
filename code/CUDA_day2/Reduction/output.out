@@ -1,0 +1,10 @@
+Device count, devid: 1 0
+Device: Tesla P100-PCIE-12GB
+[deviceProp.major.deviceProp.minor] = [6.0]
+
+Sum: 1.048445e+06 (relative error 2.117258e-06)
+
+ Average time: 2.733900e-04
+Sum: 1.048471e+06 (relative error 2.667749e-05)
+
+ Average time: 7.333360e-03

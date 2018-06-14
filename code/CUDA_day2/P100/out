@@ -1,0 +1,6 @@
+Device count, devid: 1 0
+Device: Tesla P100-PCIE-12GB
+[deviceProp.major.deviceProp.minor] = [6.0]
+
+606000001
+Time: 9.065661e+00

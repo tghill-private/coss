@@ -1,0 +1,10 @@
+echo quit | nvidia-cuda-mps-control
+export CUDA_MPS_LOG_DIRECTORY=/home/syam/tmp
+nvidia-cuda-mps-control -d
+
+mon200:  
+module unload binutils
+nvcc -arch=sm_60 -O2 primes_HQ.cu -o primes_HQ
+
+graham:
+salloc --time=0-03:00 -c 16 --gres=gpu:1 -A coss-wa_gpu  --mem-per-cpu=4G --reservation coss-wr_gpu
