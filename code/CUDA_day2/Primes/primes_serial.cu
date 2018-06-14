@@ -57,28 +57,11 @@ nvcc -arch=sm_60 -O2 primes.cu -o primes    (on graham/cedar)
 
 int timeval_subtract (double *result, struct timeval *x, struct timeval *y);
 
-__device__ int imax = 0;
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
 // Kernel(s) should go here:
-
-__global__ void kernel() {
-  int k = threadIdx.x + blockIdx.x * blockDim.x;
-  int j = 2*blockIdx.y - 1;
-  int success;
-  int x = 6*k + j;
-  int ymax, y;
-
-  ymax = (int)ceil(sqrt((double)x));
-
-  for (y=3; y<=ymax; y=y+2) {
-	  success = x % y;
-	  if (!success) return;
-  }
-  if (success) atomicMax(&imax, x);
-}
 
 
 
@@ -89,6 +72,7 @@ int main (int argc,char **argv)
   double restime;
   int devid, devcount, error, success;
   int xmax, ymax, x, y;
+
   if (BLOCK_SIZE>1024)
     {
       printf ("Bad BLOCK_SIZE: %d\n", BLOCK_SIZE);
@@ -122,9 +106,33 @@ int main (int argc,char **argv)
 
 
   // This serial computation will have to be replaced by calls to kernel(s):
-  dim3 Nblocks (NBLOCKS, 2, 1);
+  xmax = 0;
+  for (int k=KMIN; k<=KMAX; k++)
+    {
+      // testing "-1" and "+1" cases:
+      for (int j=-1; j<2; j=j+2)
+	{
+	  // Prime candidate:
+	  x = 6*k + j;
+	  // We should be dividing by numbers up to sqrt(x):
+	  ymax = (int)ceil(sqrt((double)x));
 
-  kernel<<<Nblocks, BLOCK_SIZE>>>();
+	  // Primality test:
+	  for (y=3; y<=ymax; y=y+2)
+	    {
+	      // Tpo be a success, the modulus should not be equal to zero:
+	      success = x % y;
+	      if (!success)
+		break;
+	    }
+
+	  if (success && x > xmax)
+	    {
+	      xmax = x;
+	    }
+	}
+    }
+
   if (error = cudaDeviceSynchronize())
     {
       printf ("Error %d\n", error);
